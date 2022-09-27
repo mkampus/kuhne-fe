@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import './App.css';
 import * as React from 'react';
 import Table from '@mui/material/Table';
@@ -10,24 +9,22 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import {useEffect, useState} from "react";
 import axios from "axios";
-import AppBar from "@mui/material/AppBar";
 import {
     Box,
     Button,
     CardHeader,
-    CircularProgress,
+    CircularProgress, createTheme,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
     styled,
     tableCellClasses,
-    TextField,
+    TextField, ThemeProvider,
     Typography
 } from "@mui/material";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ClearIcon from '@mui/icons-material/Clear';
-import jsonData from "./Shipments.json";
 
 function App() {
 
@@ -35,7 +32,13 @@ function App() {
     const [open, setOpen] = useState()
     const [error, setError] = useState(null);
     const [selectedData, setSelectedData] = useState()
-    const [textFieldEnabler, setTextFieldEnabler] = useState(true)
+    const [textFieldDisabler, setTextFieldDisabler] = useState(true)
+    const [userChange, setUserChange] = useState()
+    const [userData, setUserData] = useState({})
+    const [indexOfData, setIndexOfData] = useState()
+
+
+    //// Table Theme
 
     const StyledTableCell = styled(TableCell)(({theme}) => ({
         [`&.${tableCellClasses.head}`]: {
@@ -45,14 +48,29 @@ function App() {
         },
     }));
 
-    const handleClickOpen = (props) => {
-        setOpen(true);
-        setSelectedData(props)
-    };
 
-    const handleClose = () => {
-        setOpen(false);
-    };
+    //// Dialogue Text Theme
+
+    const finalTheme = createTheme({
+        components: {
+            MuiTextField: {
+                variants: [
+                    {
+                        props: { variant: 'outlined', disabled: true},
+                        style: {
+                            backgroundColor: '#f6f9fc',
+                            fontSize: '5rem',
+                            color: 'warning',
+
+                        },
+                    }
+                ]
+
+            }
+        }
+    })
+
+/// useEffect runs once. Since the API would get overrun, this also checks for that and reverts to an offline .json if necessary
 
     useEffect(() => {
 
@@ -70,41 +88,72 @@ function App() {
                     let jsonData = require('./Shipments.json');
                     setData(jsonData)
                     console.log("Error loading data. Loading offline data instead.")
-                    console.log(data)
                 }
-
-
             });
-
-
         }
         initialData()
     }, [])
 
-
-    // const initialData =  () => {
-    //     axios
-    //         .get("https://my.api.mockaroo.com/shipments.json?key=5e0b62d0")
-    //         .then(response => {
-    //
-    //             setData(response.data)
-    //
-    //         })
-    //         .catch(function (error) {
-    //         });
-    // }
+    /// Simple filter goes through the data and finds what to delete based on orderNo
 
     const deleteOrder = (props) => {
-
         const deletedOrder = data.filter(row => {
             return row.orderNo !== props;
         });
         setData(deletedOrder)
     }
 
+/// Dialogue open and close functions. Open takes in and sets the data that will be manipulated
+
+    const handleClickOpen = (props) => {
+        setOpen(true);
+        setSelectedData(props)
+        console.log(selectedData)
+        setIndexOfData(data.indexOf(props))
+    };
+
+    const handleClose = () => {
+        setOpen(false);
+        setSelectedData(null)
+        setTextFieldDisabler(true)
+    };
+
+
+    // Handles user inputs into textfields. Feels slow and laggy at the moment and is subject to change once I figure
+    // out what the issue is
+
+    const handleChange = (e, name) => {
+        setUserChange(e)
+
+        // nifty little function for getting a dynamic key instead of the if logic chain I had here before
+
+            const getKey = () => {
+                return name;
+            }
+        setUserData({...userData, [getKey()]: e});
+
+    }
+
+    // Function to save all the new details and add them to the original data state. Though this could be done in
+    // in various ways, I had some odd bugs with Object.assign so I chose to just do it by finding the index and
+    // replacing the values therein.
+
+
+    const saveNewDetails = () => {
+        let merge = {
+            ...selectedData,
+            ...userData
+        }
+        let newState = [...data]
+        newState[indexOfData] = merge
+        setData(newState)
+        setUserChange(null)
+        setTextFieldDisabler(true)
+    }
+
+
 
     return (<div>
-
         {data ? <TableContainer component={Paper}>
                 <Table sx={{minWidth: 650}} aria-label="simple table">
                     <TableHead>
@@ -145,7 +194,7 @@ function App() {
 
             </div>}
 
-        {selectedData ? <Dialog maxWidth='lg'
+        {selectedData ? <ThemeProvider theme={finalTheme}><Dialog maxWidth='lg'
                                 open={open}
                                 onClose={handleClose}
                                 hideBackdrop={true}
@@ -163,36 +212,45 @@ function App() {
                     autoComplete="off"
                 >
                     <div> OrderNo:
-                        <TextField fullWidth id="outlined-read-only-input" disabled={textFieldEnabler}
-                                   fullWidth value={selectedData.orderNo}></TextField></div>
+                        <TextField variant={"outlined"} fullWidth name='orderNo' disabled={textFieldDisabler}
+                                   placeholder={selectedData.orderNo} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}></TextField></div>
                     <div> Customer
-                        <TextField fullWidth id="outlined-basic" disabled={textFieldEnabler}
-                                   value={selectedData.customer}> </TextField></div>
-
+                        <TextField fullWidth name="customer" disabled={textFieldDisabler}
+                                   placeholder={selectedData.customer} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}> </TextField></div>
                     <div> Consignee
-                        <TextField fullWidth id="outlined-basic" disabled={textFieldEnabler}
-                                   value={selectedData.consignee}> </TextField></div>
+                        <TextField fullWidth name="consignee" disabled={textFieldDisabler}
+                                   placeholder={selectedData.consignee} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}> </TextField></div>
                     <div> Date
-                        <TextField fullWidth id="outlined-basic" disabled={textFieldEnabler}
-                                   value={selectedData.date}> </TextField></div>
+                        <TextField fullWidth name="date" disabled={textFieldDisabler}
+                                   placeholder={selectedData.date} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}> </TextField></div>
                     <div> TrackingNo
-                        <TextField fullWidth id="outlined-basic" disabled={textFieldEnabler}
-                                   value={selectedData.trackingNo}> </TextField></div>
+                        <TextField fullWidth name="trackingNo" disabled={textFieldDisabler}
+                                   placeholder={selectedData.trackingNo} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}> </TextField></div>
                     <div> Status
-                        <TextField fullWidth id="outlined-basic" disabled={textFieldEnabler}
-                                   value={selectedData.status}> </TextField></div>
-
-                    {/*<DialogContentText>*/}
-                    {/*    {filmData.overview}*/}
-                    {/*    {filmData.homepage}*/}
-                    {/*</DialogContentText>*/}
+                        <TextField fullWidth name="status" disabled={textFieldDisabler}
+                                   placeholder={selectedData.status} onChange={(e) => {
+                            handleChange(e.target.value, e.target.name)
+                        }}> </TextField></div>
 
                 </Box>
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose}>Close</Button>
+                <Button onClick={() => setTextFieldDisabler(false)}>Change Details</Button>
+                {userChange ? <Button onClick={() => saveNewDetails(userChange, selectedData)}>Save Details</Button> :
+                    <div></div>}
             </DialogActions>
-        </Dialog> : <div></div>}
+        </Dialog> </ThemeProvider>: <div></div>}
 
     </div>);
 }
